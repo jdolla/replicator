@@ -1,0 +1,23 @@
+{
+  "demo": {
+    "source": {
+      "connStr": "SERVER='127.0.0.1,1433';DATABASE='replicatorDemo';UID='sa';PWD='p@ssword123!'",
+      "username": "sa",
+      "password": "p@ssword123!",
+      "host": "127.0.0.1,1433",
+      "database": "replicatorDemo",
+      "trusted": false,
+      "driver": "ODBC Driver 17 for SQL Server"
+    },
+    "target": {
+      "connStr": "ODBC Driver 17 for SQL Server",
+      "username": "sa",
+      "password": "p@ssword123!",
+      "host": "127.0.0.1,1433",
+      "database": "replicatorDemo",
+      "trusted": false,
+      "driver": "ODBC Driver 17 for SQL Server"
+    },
+    "tables": ["animal"]
+  }
+}
