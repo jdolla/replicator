@@ -27,7 +27,7 @@ class ConnectionManager:
             "type": ConnectionType.odbc
         }
 
-    def getOdbcCursor(self, connection)
+    def getOdbcCursor(self, connection):
         odbcConn = self._connections[connection]['connection']
         return odbcConn.cursor()
 

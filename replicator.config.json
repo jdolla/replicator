@@ -1,7 +1,7 @@
 {
   "demo": {
     "source": {
-      "connStr": "SERVER='127.0.0.1,1433';DATABASE='replicatorDemo';UID='sa';PWD='p@ssword123!'",
+      "connStr": "SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
       "username": "sa",
       "password": "p@ssword123!",
       "host": "127.0.0.1,1433",

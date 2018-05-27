@@ -3,10 +3,8 @@
     Manages all the objects needed for replicator logic.
 """
 
-import connectionManager as connMgr
 
-
-class OdbcTableRowGenerator:
+class MssqlRowGenerator:
     """
         A generator that produces rows from a specified table.
         Rows are obtained based on the 'rowver' column.
