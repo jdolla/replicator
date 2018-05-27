@@ -18,6 +18,9 @@
       "trusted": false,
       "driver": "ODBC Driver 17 for SQL Server"
     },
-    "tables": ["animal"]
+    "tables": [{
+      "schema": "dbo",
+      "name": "animal"
+    }]
   }
 }
