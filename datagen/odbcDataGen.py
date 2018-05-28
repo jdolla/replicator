@@ -1,18 +1,12 @@
-"""
-    rowgen:
-    Manages all the objects needed for replicator logic.
-"""
-
-
 class MssqlRowGenerator:
     """
         A generator that produces rows from a specified table.
         Rows are obtained based on the 'rowver' column.
     """
 
-    def __init__(self, connection, tableSchema, tableName, **kwargs):
+    def __init__(self, connection, schemaName, tableName, **kwargs):
         """
-            OdbcTablerows
+            MssqlRowGenerator
                 :param connection:  a pyodbc connection object
                 :param table:   the table to draw rows from
 
@@ -29,7 +23,7 @@ class MssqlRowGenerator:
         """
         self._connection = connection
         self._rowCursor = self._connection.cursor()
-        self._table = f'[{tableSchema}].[{tableName}]'
+        self._table = f'[{schemaName}].[{tableName}]'
         self._rowver = (kwargs['rowver']
                         if 'rowver' in kwargs else 0)
 
