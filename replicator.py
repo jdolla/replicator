@@ -20,5 +20,15 @@ pk = sql.getTablePk(conn, 'dbo', 'animal_pk')
 # print('PK:', pk)
 
 sink = MssqlRowSink(conn, 'dbo', 'animal_pk', pk, cols)
-print(sink.insertStatement)
-print(sink.updateStatement)
+# print(sink.insertStatement)
+# print(sink.updateStatement)
+
+cursor = conn.cursor()
+cursor.execute('create table #temp (col1 int)')
+
+cursor.fast_executemany = True
+
+cursor.executemany(
+    'insert #temp (col1) values(?)', [(1,), (3,), (5,)])
+
+print(conn.cursor().execute('select * from #temp').fetchall())
