@@ -1,27 +1,15 @@
+from table import Table
+import pyodbc
+
+
 class MssqlRowGenerator:
     """
         A generator that produces rows from a specified table.
         Rows are obtained based on the 'rowver' column.
     """
 
-    def __init__(self, connection, schemaName, tableName, **kwargs):
-        """
-            MssqlRowGenerator
-                :param connection:  a pyodbc connection object
-                :param table:   the table to draw rows from
-
-                :param **kwargs:
-                    rowver: default 0
-                        inital rowver.  rows will be selected if
-                        the rowver for that row is greater than rowver.
-
-                    batch: default 10000
-                        the number of rows to retrive from the odbc connection.
-
-                    retCount: default 1000
-                        the number of rows to return from each iteration
-        """
-        self._connection = connection
+    def __init__(self, connStr, schemaName, tableName, **kwargs):
+        self._connection = pyodbc.connect(connStr)
         self._rowCursor = self._connection.cursor()
         self._table = f'[{schemaName}].[{tableName}]'
         self._rowver = (kwargs['rowver']

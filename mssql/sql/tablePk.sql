@@ -5,7 +5,7 @@ Declare @Table SYSNAME = ?;
 
 Declare @objectId bigint = object_id(concat(@Schema, '.', @Table))
 
-select c.name
+select c.name as COLUMN_NAME
 from sys.indexes i
 inner join sys.index_columns ic
     on ic.object_id = i.object_id
