@@ -194,6 +194,7 @@ class TypeMap:
 
 
 if __name__ == "__main__":
+    # Will remove this block when done testing
     genConn = pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
         "SERVER=127.0.0.1,1433;"
