@@ -55,6 +55,36 @@ class Table:
 
         return set(self.schema) == set(other.schema)
 
+    def __lt__(self, other):
+        """A Table is less than another table if it is missing columns
+        found in the other table"""
+
+        sSchema = self.schema
+        oSchema = other.schema
+
+        for col, attr in oSchema.items():
+            if col not in sSchema:
+                return True
+            if attr != oSchema[col]:
+                return True
+
+        return False
+
+    def __gt__(self, other):
+        """A Table is less than another table if it is missing columns
+        found in the other table"""
+
+        sSchema = self.schema
+        oSchema = other.schema
+
+        for col, attr in sSchema.items():
+            if col not in oSchema:
+                return True
+            if attr != sSchema[col]:
+                return True
+
+        return False
+
     @property
     def name(self):
         return f'[{self._schemaName}].[{self._tableName}]'
@@ -117,6 +147,24 @@ class Table:
             """
         return dedent(query)
 
+    def syncWith(self, other):
+        """Adds columns to this table so that columns match the source.
+            DataTypes are always added according to the TypeMap
+            New Columns are always nullable"""
+
+        if self < other:
+            newCols = {k: v for (k, v) in other.schema.items()
+                       if k not in self.schema}
+
+            for col, attr in newCols.items():
+                query = f"Alter Table {self.name}" \
+                    f" Add [{col}] {TypeMap.typeFor(attr)} NULL;"
+
+                with self._connection.cursor() as cursor:
+                    cursor.execute(query)
+                    if not self._connection.autocommit:
+                        cursor.commit()
+
 
 class TypeMap:
     """Maps sql types to t-sql create statement"""
@@ -162,7 +210,13 @@ if __name__ == "__main__":
         "PWD=p@ssword123!"
     )
 
-    tableGen = Table(genConn, 'dbo', 'animal')
-    tableSink = Table(sinkConn, 'dbo', 'animal_pk')
+    animal = Table(genConn, 'dbo', 'animal')
+    animalCopy = Table(sinkConn, 'dbo', 'animal_copy')
 
-    print(tableGen == tableSink)
+    # print(tableGen == tableSink)
+
+    print('<', animalCopy < animal)
+    print('=', animal == animalCopy)
+    print('<', animal > animalCopy)
+
+    animalCopy.syncWith(animal)
