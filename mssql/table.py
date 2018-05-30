@@ -190,6 +190,13 @@ class Table:
                     if not self._connection.autocommit:
                         cursor.commit()
 
+    def deinit(self):
+        """Deinitializes lazy props"""
+        self._schema = {}
+        self._columns = ()
+        self._pkCols = ()
+        self._tempTable = ""
+
 
 class TypeMap:
     """Maps sql types to t-sql create statement"""
