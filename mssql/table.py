@@ -31,6 +31,10 @@ class Table:
         self._connection = connection
         self._tableName = tableName
         self._schemaName = schemaName
+        self._schema = {}
+        self._columns = ()
+        self._pkCols = ()
+        self._tempTable = ""
 
     def __dict__(self):
         return self.__dict__
@@ -93,12 +97,15 @@ class Table:
     def schema(self):
         """Dictionary of mssql schema"""
 
+        if self._schema:
+            return self._schema
+
         query = templates['tableSchema']
         with self._connection.cursor() as cursor:
             cursor.execute(query, self._schemaName, self._tableName)
             cols = cursor.fetchall()
 
-            return {
+            self._schema = {
                 col.COLUMN_NAME: {
                     'ORDINAL_POSITION': col.ORDINAL_POSITION,
                     'IS_NULLABLE': col.IS_NULLABLE,
@@ -109,27 +116,44 @@ class Table:
                 }
                 for col in cols
             }
+            return self._schema
 
     @property
     def columns(self):
         """Returns a tuple of columns"""
+
+        if self._columns:
+            return self._columns
+
         query = templates['tableColumns']
         with self._connection.cursor() as cursor:
             cursor.execute(query, self._schemaName, self._tableName)
             cols = cursor.fetchall()
-            return tuple([f"[{col.COLUMN_NAME}]" for col in cols])
+            self._columns = tuple([f"[{col.COLUMN_NAME}]" for col in cols])
+            return self._columns
 
     @property
     def pkColumns(self):
         """Returns tuple representing the pk columns"""
+
+        if self._pkCols:
+            return self._pkCols
+
         query = templates['tablePk']
         with self._connection.cursor() as cursor:
             cursor.execute(query, self._schemaName, self._tableName)
             cols = cursor.fetchall()
-            return tuple([f"[{col.COLUMN_NAME}]" for col in cols])
+            self._pkCols = tuple([f"[{col.COLUMN_NAME}]" for col in cols])
+            return self._pkCols
 
     @property
     def tempTable(self):
+        """Returns the SQL needed to create a local temporary table version
+            of this table."""
+
+        if self._tempTable:
+            return self._tempTable
+
         pk = ", ".join(self.pkColumns)
 
         columns = ", ".join([f"[{col}] {TypeMap.typeFor(attr)}"
@@ -145,7 +169,8 @@ class Table:
                     primary key clustered ({pk})
                 );
             """
-        return dedent(query)
+        self._tempTable = dedent(query)
+        return self._tempTable
 
     def syncWith(self, other):
         """Adds columns to this table so that columns match the source.
@@ -221,3 +246,7 @@ if __name__ == "__main__":
     print('<', animal > animalCopy)
 
     animalCopy.syncWith(animal)
+
+    print(animalCopy.schema)
+    print(animalCopy.pkColumns)
+    print(animalCopy.pkColumns)
