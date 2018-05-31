@@ -197,6 +197,41 @@ class Table:
         self._pkCols = ()
         self._tempTable = ""
 
+    def rowver(self):
+        pass
+
+    def rows(self):
+        query = f"""
+            Select top (?) *
+            From {self._table}
+            Where rowver > ?
+            Order by rowver asc
+        """
+
+        while True:
+            self._rowCursor.execute(query, (self._batch, self._rowver))
+            rows = self._rowCursor.fetchmany(self._retCount)
+
+            if not rows:
+                break
+
+            while True:
+                yield rows
+                self._rowver = max(row.rowver for row in rows)
+                rows = self._rowCursor.fetchmany(self._retCount)
+
+                if not rows:
+                    break
+
+    def insert(self, rows):
+        pass
+
+    def update(self, rows):
+        pass
+
+    def merge(self, rows):
+        pass
+
 
 class TypeMap:
     """Maps sql types to t-sql create statement"""
