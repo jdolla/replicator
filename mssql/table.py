@@ -28,6 +28,7 @@ class Table:
     """Class for managing a sql table"""
 
     def __init__(self, connection, schemaName, tableName):
+        self._batch = 10000
         self._connection = connection
         self._tableName = tableName
         self._schemaName = schemaName
@@ -88,6 +89,14 @@ class Table:
                 return True
 
         return False
+
+    @property
+    def batch(self):
+        return self._batch
+
+    @batch.setter
+    def batch(self, size):
+        self._batch = size
 
     @property
     def name(self):
@@ -198,27 +207,34 @@ class Table:
         self._tempTable = ""
 
     def rowver(self):
-        pass
-
-    def rows(self):
         query = f"""
-            Select top (?) *
-            From {self._table}
+            Select rowver = max(rowver)
+            From {self.name};
+        """
+
+        with self._connection.cursor() as cursor:
+            cursor.execute(query)
+            return cursor.fetchone()[0]
+
+    def rows(self, rowver, count=500):
+        query = f"""
+            Select top (?) {", ".join(self.columns)}
+            From {self.name}
             Where rowver > ?
             Order by rowver asc
         """
-
+        cursor = self._connection.cursor()
         while True:
-            self._rowCursor.execute(query, (self._batch, self._rowver))
-            rows = self._rowCursor.fetchmany(self._retCount)
+            cursor.execute(query, (self.batch, rowver))
+            rows = cursor.fetchmany(count)
 
             if not rows:
                 break
 
             while True:
                 yield rows
-                self._rowver = max(row.rowver for row in rows)
-                rows = self._rowCursor.fetchmany(self._retCount)
+                rowver = max(row.rowver for row in rows)
+                rows = cursor.fetchmany(count)
 
                 if not rows:
                     break
@@ -283,12 +299,31 @@ if __name__ == "__main__":
 
     # print(tableGen == tableSink)
 
-    print('<', animalCopy < animal)
-    print('=', animal == animalCopy)
-    print('<', animal > animalCopy)
+    # print('<', animalCopy < animal)
+    # print('=', animal == animalCopy)
+    # print('<', animal > animalCopy)
 
-    animalCopy.syncWith(animal)
+    # animalCopy.syncWith(animal)
 
-    print(animalCopy.schema)
-    print(animalCopy.pkColumns)
-    print(animalCopy.pkColumns)
+    # print(animalCopy.schema)
+    # print(animalCopy.pkColumns)
+    # print(animalCopy.pkColumns)
+
+    # print(animal.rowver())
+    # print(animalCopy.rowver())
+
+    # print(animal.batch)
+    # print(animalCopy.batch)
+
+    # animal.batch = 1
+    # print(animal.batch)
+
+    # print(animal.rows(1))
+
+    # print(animal.pkColumns)
+
+    rowver = animalCopy.rowver()
+    rows = animal.rows(rowver, 1)
+
+    for row in rows:
+        print(row)
