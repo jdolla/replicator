@@ -242,9 +242,6 @@ class Table:
     def insert(self, rows):
         pass
 
-    def update(self, rows):
-        pass
-
     def merge(self, rows):
         pass
 
