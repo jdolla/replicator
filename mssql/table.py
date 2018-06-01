@@ -36,7 +36,7 @@ class Table:
         self._schema = {}
         self._columns = ()
         self._pkCols = ()
-        self._tempTable = ""
+        self._mergeQueries = {}
 
     def __dict__(self):
         return self.__dict__
@@ -156,32 +156,6 @@ class Table:
             self._pkCols = tuple([f"[{col.COLUMN_NAME}]" for col in cols])
             return self._pkCols
 
-    @property
-    def tempTable(self):
-        """Returns the SQL needed to create a local temporary table version
-            of this table."""
-
-        if self._tempTable:
-            return self._tempTable
-
-        pk = ", ".join(self.pkColumns)
-
-        columns = ", ".join([f"[{col}] {TypeMap.typeFor(attr)}"
-                             for col, attr in self.schema.items()])
-
-        tempName = self._schemaName + self._tableName
-        query = f"""
-                IF OBJECT_ID('tempdb..#{tempName}') IS NOT NULL
-                    DROP TABLE #{tempName};
-
-                CREATE TABLE #{tempName}(
-                    {columns},
-                    primary key clustered ({pk})
-                );
-            """
-        self._tempTable = dedent(query)
-        return self._tempTable
-
     def syncWith(self, other):
         """Adds columns to this table so that columns match the source.
             DataTypes are always added according to the TypeMap
@@ -256,29 +230,57 @@ class Table:
             if not self._connection.autocommit:
                 cursor.commit()
 
-    def merge(self, rows, columns):
+    def mergeStatement(self, columns):
 
-        tempName = self._schemaName + self._tableName
-        insertTempTable = self.tempTable
-        insert = f"""
-                Insert #{tempName} ({', '.join(columns)})
-                values ({', '.join('?' * len(columns))});
-            """
+        if self._mergeQueries:
+            return self._mergeQueries
 
-        pkCols = [f'{key} {TypeMap.typeFor(attr)}'
-                  for key, attr in self.schema.items()
-                  if f'[{key}]' in self.pkColumns]
+        selfPk = ", ".join(self.pkColumns)
 
-        outTempName = tempName + '_updated'
-        outTempTable = f"""
-                if object_id('tempdb..#{outTempName}') is not null
-                    drop table #{outTempName};
+        selfColSchema = ", ".join([f"[{col}] {TypeMap.typeFor(attr)}"
+                                   for col, attr in self.schema.items()])
 
-                Create Table #{outTempName} (
-                    {', '.join(pkCols)}
+        # Generate a temporary table for staging the data
+        tempTableName = self._schemaName + self._tableName
+        tempTableCreate = f"""
+                IF OBJECT_ID('tempdb..#{tempTableName}') IS NOT NULL
+                    DROP TABLE #{tempTableName};
+
+                CREATE TABLE #{tempTableName}(
+                    {selfColSchema},
+                    primary key clustered ({selfPk})
                 );
             """
+        tempTableCreate = dedent(tempTableCreate)
 
+        # Insert rows into the staging table
+        # Use the columns from the source data.
+        insertCols = ', '.join(columns)
+        tempTableInsert = f"""
+                Insert #{tempTableName} ({insertCols})
+                values ({', '.join('?' * len(columns))});
+            """
+        tempTableInsert = dedent(tempTableInsert)
+
+        # Output table for capturing updated keys
+        selfPkColShema = [f'{key} {TypeMap.typeFor(attr)}'
+                          for key, attr in self.schema.items()
+                          if f'[{key}]' in self.pkColumns]
+
+        outTempTableName = f'{tempTableName}_updated'
+        outTempTableCreate = f"""
+                if object_id('tempdb..#{outTempTableName}') is not null
+                    drop table #{outTempTableName};
+
+                Create Table #{outTempTableName} (
+                    {', '.join(selfPkColShema)},
+                    primary key({selfPk})
+                );
+            """
+        outTempTableCreate = dedent(outTempTableCreate)
+
+        # Update Existing records
+        # Exclude the pk columns from the update.
         updateCols = [
             f"t.{col} = s.{col}"
             for col in columns
@@ -288,22 +290,48 @@ class Table:
 
         outputCols = [f'inserted.{col}' for col in self.pkColumns]
 
-        update = f"""
+        updateTable = f"""
                     update t
                     set {', '.join(updateCols)}
                     output {', '.join(outputCols)}
-                    into #{outTempName} ({', '.join(self.pkColumns)})
+                    into #{outTempTableName} ({', '.join(self.pkColumns)})
                     from {self.name} t
-                    inner join #{tempName} s
-                    on {', '.join(joinCols)}
+                    inner join #{tempTableName} s
+                    on {' and '.join(joinCols)};
                 """
+        updateTable = dedent(updateTable)
+
+        # Insert new rows
+        insertTable = f"""
+                insert {self.name} ({insertCols})
+                select {', '.join([f's.{col}' for col in columns])}
+                from #{tempTableName} s
+                left join #{outTempTableName} t
+                on {' and '.join(joinCols)}
+                where t.{self.pkColumns[0]} is null;
+            """
+        insertTable = dedent(insertTable)
+
+        self._mergeQueries = {
+            'tempTableCreate': tempTableCreate,
+            'outTempTableCreate': outTempTableCreate,
+            'tempTableInsert': tempTableInsert,
+            'updateTable': updateTable,
+            'insertTable': insertTable
+        }
+
+        return self._mergeQueries
+
+    def merge(self, rows, columns):
+        mergeStatements = self.mergeStatement(columns)
 
         with self._connection.cursor() as cursor:
-            cursor.execute(insertTempTable)  # Create data temp table
-            cursor.execute(outTempTable)  # Create temp for keys
-            cursor.executemany(insert, rows)  # Insert new rows
-            cursor.execute(update)  # perform update
-            # insert new
+            # cursor.fast_executemany = True
+            cursor.execute(mergeStatements['tempTableCreate'])
+            cursor.execute(mergeStatements['outTempTableCreate'])
+            cursor.executemany(mergeStatements['tempTableInsert'], rows)
+            cursor.execute(mergeStatements['updateTable'])
+            cursor.execute(mergeStatements['insertTable'])
 
             if not self._connection.autocommit:
                 cursor.commit()
@@ -334,61 +362,3 @@ class TypeMap:
                 ", {type['NUMERIC_SCALE']})"
 
         return base
-
-
-if __name__ == "__main__":
-    # Will remove this block when done testing
-    genConn = pyodbc.connect(
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=127.0.0.1,1433;"
-        "DATABASE=replicatorDemo;"
-        "UID=sa;"
-        "PWD=p@ssword123!"
-    )
-
-    sinkConn = pyodbc.connect(
-        "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=127.0.0.1,1433;"
-        "DATABASE=replicatorDemo;"
-        "UID=sa;"
-        "PWD=p@ssword123!"
-    )
-
-    animal = Table(genConn, 'dbo', 'animal')
-    animalCopy = Table(sinkConn, 'dbo', 'animal_copy')
-
-    # print(tableGen == tableSink)
-
-    # print('<', animalCopy < animal)
-    # print('=', animal == animalCopy)
-    # print('<', animal > animalCopy)
-
-    # animalCopy.syncWith(animal)
-
-    # print(animalCopy.schema)
-    # print(animalCopy.pkColumns)
-    # print(animalCopy.pkColumns)
-
-    # print(animal.rowver())
-    # print(animalCopy.rowver())
-
-    # print(animal.batch)
-    # print(animalCopy.batch)
-
-    # animal.batch = 1
-    # print(animal.batch)
-
-    # print(animal.rows(1))
-
-    # print(animal.pkColumns)
-
-    # rowver = animalCopy.rowver()
-    # rows = animal.rows(rowver, 1)
-
-    # for row in rows:
-    #     print(row)
-
-    cols = animal.columns
-    rows = animal.rows(animalCopy.rowver())
-    for row in rows:
-        animalCopy.merge(row, animal.columns)
