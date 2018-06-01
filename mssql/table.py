@@ -30,6 +30,7 @@ class Table:
     def __init__(self, connection, schemaName, tableName):
         self._batch = 10000
         self._connection = connection
+
         self._tableName = tableName
         self._schemaName = schemaName
         self._schema = {}
@@ -239,8 +240,17 @@ class Table:
                 if not rows:
                     break
 
-    def insert(self, rows):
-        pass
+    def insert(self, rows, columns):
+        query = f"""
+            Insert {self.name} ({', '.join(columns)})
+            values ({', '.join('?' * len(columns))});
+        """
+
+        with self._connection.cursor() as cursor:
+            cursor.fast_executemany = True
+            cursor.executemany(query, rows)
+            if not self._connection.autocommit:
+                cursor.commit()
 
     def merge(self, rows):
         pass
@@ -319,8 +329,12 @@ if __name__ == "__main__":
 
     # print(animal.pkColumns)
 
-    rowver = animalCopy.rowver()
-    rows = animal.rows(rowver, 1)
+    # rowver = animalCopy.rowver()
+    # rows = animal.rows(rowver, 1)
 
+    # for row in rows:
+    #     print(row)
+
+    rows = animal.rows(animalCopy.rowver())
     for row in rows:
-        print(row)
+        animalCopy.insert(row, animal.columns)
