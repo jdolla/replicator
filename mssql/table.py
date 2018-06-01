@@ -224,6 +224,10 @@ class Table:
             Where rowver > ?
             Order by rowver asc
         """
+
+        if rowver is None:
+            rowver = b'\x00\x00\x00\x00\x00\x00\x00'
+
         cursor = self._connection.cursor()
         while True:
             cursor.execute(query, (self.batch, rowver))
@@ -252,8 +256,57 @@ class Table:
             if not self._connection.autocommit:
                 cursor.commit()
 
-    def merge(self, rows):
-        pass
+    def merge(self, rows, columns):
+
+        tempName = self._schemaName + self._tableName
+        insertTempTable = self.tempTable
+        insert = f"""
+                Insert #{tempName} ({', '.join(columns)})
+                values ({', '.join('?' * len(columns))});
+            """
+
+        pkCols = [f'{key} {TypeMap.typeFor(attr)}'
+                  for key, attr in self.schema.items()
+                  if f'[{key}]' in self.pkColumns]
+
+        outTempName = tempName + '_updated'
+        outTempTable = f"""
+                if object_id('tempdb..#{outTempName}') is not null
+                    drop table #{outTempName};
+
+                Create Table #{outTempName} (
+                    {', '.join(pkCols)}
+                );
+            """
+
+        updateCols = [
+            f"t.{col} = s.{col}"
+            for col in columns
+            if col not in self.pkColumns]
+
+        joinCols = [f's.{col} = t.{col}' for col in self.pkColumns]
+
+        outputCols = [f'inserted.{col}' for col in self.pkColumns]
+
+        update = f"""
+                    update t
+                    set {', '.join(updateCols)}
+                    output {', '.join(outputCols)}
+                    into #{outTempName} ({', '.join(self.pkColumns)})
+                    from {self.name} t
+                    inner join #{tempName} s
+                    on {', '.join(joinCols)}
+                """
+
+        with self._connection.cursor() as cursor:
+            cursor.execute(insertTempTable)  # Create data temp table
+            cursor.execute(outTempTable)  # Create temp for keys
+            cursor.executemany(insert, rows)  # Insert new rows
+            cursor.execute(update)  # perform update
+            # insert new
+
+            if not self._connection.autocommit:
+                cursor.commit()
 
 
 class TypeMap:
@@ -335,6 +388,7 @@ if __name__ == "__main__":
     # for row in rows:
     #     print(row)
 
+    cols = animal.columns
     rows = animal.rows(animalCopy.rowver())
     for row in rows:
-        animalCopy.insert(row, animal.columns)
+        animalCopy.merge(row, animal.columns)
