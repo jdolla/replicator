@@ -1,7 +1,7 @@
 {
   "demo": {
     "source": {
-      "connStr": "SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
+      "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
       "username": "sa",
       "password": "p@ssword123!",
       "host": "127.0.0.1,1433",
@@ -10,7 +10,7 @@
       "driver": "ODBC Driver 17 for SQL Server"
     },
     "target": {
-      "connStr": "ODBC Driver 17 for SQL Server",
+      "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
       "username": "sa",
       "password": "p@ssword123!",
       "host": "127.0.0.1,1433",
@@ -19,8 +19,43 @@
       "driver": "ODBC Driver 17 for SQL Server"
     },
     "tables": [{
-      "schema": "dbo",
-      "name": "animal"
+      "source": {
+        "schema": "dbo",
+        "name": "animal"
+      },
+      "target": {
+        "schema": "dbo",
+        "name": "animal_copy"
+      }
+    }]
+  },
+  "secondDemo": {
+    "source": {
+      "username": "sa",
+      "password": "p@ssword123!",
+      "host": "127.0.0.1,1433",
+      "database": "replicatorDemo",
+      "trusted": true,
+      "driver": "ODBC Driver 17 for SQL Server"
+    },
+    "target": {
+      "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
+      "username": "sa",
+      "password": "p@ssword123!",
+      "host": "127.0.0.1,1433",
+      "database": "replicatorDemo",
+      "trusted": false,
+      "driver": "ODBC Driver 17 for SQL Server"
+    },
+    "tables": [{
+      "source": {
+        "schema": "dbo",
+        "name": "animal"
+      },
+      "target": {
+        "schema": "dbo",
+        "name": "animal_copy"
+      }
     }]
   }
 }

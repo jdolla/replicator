@@ -203,20 +203,15 @@ class Table:
             rowver = b'\x00\x00\x00\x00\x00\x00\x00'
 
         cursor = self._connection.cursor()
+        cursor.execute(query, (self.batch, rowver))
+        rows = cursor.fetchmany(count)
+
         while True:
-            cursor.execute(query, (self.batch, rowver))
+            yield rows
             rows = cursor.fetchmany(count)
 
             if not rows:
                 break
-
-            while True:
-                yield rows
-                rowver = max(row.rowver for row in rows)
-                rows = cursor.fetchmany(count)
-
-                if not rows:
-                    break
 
     def insert(self, rows, columns):
         query = f"""

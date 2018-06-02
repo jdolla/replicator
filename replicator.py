@@ -1,34 +1,86 @@
-import connectionManager
-import datagen
-import schema.mssql as sql
-from datasink.odbcDataSink import MssqlRowSink
+from mssql.table import Table as sqlTable
+import pyodbc
+import json
+import time
+import multiprocessing as mp
+import configHelper as ch
 
-constr = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!"
 
-mgr = connectionManager.ConnectionManager()
-mgr.addOdbcConnection('source', constr)
+def procDataflow(src, trgt):
+    """
+    Processes a dataflow.
+        src: a data source (table)
+        trgt: a data target (table)
 
-conn = mgr.getOdbcConnection('source')
+    Note:   It is possible to extend this pattern by including
+            transformation functions.
+            Someting to think about for later :)
+    """
 
-srcTableSchema = sql.getTableSchema(conn, 'dbo', 'animal')
-trgtTableSchema = sql.getTableSchema(conn, 'dbo', 'animal_pk')
+    srcTable = sqlTable(
+        connection=pyodbc.connect(src['connStr']),
+        schemaName=src['schema'],
+        tableName=src['name']
+    )
 
-cols = sql.getTableColumns(srcTableSchema)
-# print('Cols:', cols)
+    trgtTable = sqlTable(
+        connection=pyodbc.connect(trgt['connStr']),
+        schemaName=trgt['schema'],
+        tableName=trgt['name']
+    )
 
-pk = sql.getTablePk(conn, 'dbo', 'animal_pk')
-# print('PK:', pk)
+    trgtTable.syncWith(srcTable)
+    trgtTable.batch = 10
 
-sink = MssqlRowSink(conn, 'dbo', 'animal_pk', pk, cols)
-# print(sink.insertStatement)
-# print(sink.updateStatement)
+    rowSets = srcTable.rows(trgtTable.rowver(), 500)
 
-cursor = conn.cursor()
-cursor.execute('create table #temp (col1 int)')
+    while True:
+        for rowSet in rowSets:
+            trgtTable.merge(rowSet, srcTable.columns)
 
-cursor.fast_executemany = True
+        rowSets = srcTable.rows(trgtTable.rowver())
 
-cursor.executemany(
-    'insert #temp (col1) values(?)', [(1,), (3,), (5,)])
+        if not rowSets:
+            break
 
-print(conn.cursor().execute('select * from #temp').fetchall())
+
+if __name__ == '__main__':
+    """
+    Process Data Flows
+    """
+
+    with open('replicator.config.json', 'r') as f:
+        config = json.load(f)
+
+    for k, v in config.items():
+        srcConnStr = ch.getConnStr(v['source'])
+        trgtConnStr = ch.getConnStr(v['target'])
+        print(srcConnStr)
+# {
+#     connStr:xxx,
+#     schema:xxx,
+#     name:xxx
+# }
+# project = config['demo']
+
+# sourceTable = sqlTable(
+#     connection=pyodbc.connect(project['source']['connStr'], timeout=30),
+#     schemaName=project['tables'][0]['source']['schema'],
+#     tableName=project['tables'][0]['source']['name'])
+
+# targetTable = sqlTable(
+#     connection=pyodbc.connect(project['target']['connStr'], timeout=30),
+#     schemaName=project['tables'][0]['target']['schema'],
+#     tableName=project['tables'][0]['target']['name'])
+
+
+# targetTable.syncWith(sourceTable)
+# targetTable.batch = 10
+# sourceRows = sourceTable.rows(targetTable.rowver(), 500)
+
+# while True:
+#     for row in sourceRows:
+#         targetTable.merge(row, sourceTable.columns)
+
+#     sourceRows = sourceTable.rows(targetTable.rowver())
+#     time.sleep(10)
