@@ -1,9 +1,10 @@
-from mssql.table import Table as sqlTable
-import pyodbc
-import json
+import sys
 import time
 import multiprocessing as mp
-import configHelper as ch
+import pyodbc
+import argparse
+import replicatorConfig as rc
+from mssql.table import Table as sqlTable
 
 
 def procDataflow(src, trgt):
@@ -44,43 +45,41 @@ def procDataflow(src, trgt):
             break
 
 
+def main(args):
+
+    try:
+        config = rc.config(args)
+    except FileNotFoundError as err:
+        print(f'Unable to open config file:\n{err}')
+        sys.exit(1)
+    except Exception as err:
+        print(f'There was a problem loading the configuration data.\n'
+              f'error: {err}')
+        sys.exit(1)
+
+    try:
+        runJobs = config.jobs
+    except Exception as err:
+        print(f'There was a problem loading the job list:\nerror:{err}')
+
+    for job, configs in runJobs.items():
+        print('Running Job:', job, configs)
+
+
 if __name__ == '__main__':
-    """
-    Process Data Flows
-    """
+    epilog = "All replicator arguments are optional and will" \
+        " override the values in the config file."
 
-    with open('replicator.config.json', 'r') as f:
-        config = json.load(f)
+    parser = argparse.ArgumentParser(
+        description='Data Replicator', epilog=epilog)
+    parser.add_argument('-j', '--jobs', nargs='+',
+                        help='<Optional> List of jobs to process.'
+                        ' If omitted all jobs will process.',
+                        required=False)
 
-    for k, v in config.items():
-        srcConnStr = ch.getConnStr(v['source'])
-        trgtConnStr = ch.getConnStr(v['target'])
-        print(srcConnStr)
-# {
-#     connStr:xxx,
-#     schema:xxx,
-#     name:xxx
-# }
-# project = config['demo']
+    parser.add_argument('-p', '--proc', nargs='?',
+                        help='<Optional> Number of processes to use.',
+                        required=False)
 
-# sourceTable = sqlTable(
-#     connection=pyodbc.connect(project['source']['connStr'], timeout=30),
-#     schemaName=project['tables'][0]['source']['schema'],
-#     tableName=project['tables'][0]['source']['name'])
-
-# targetTable = sqlTable(
-#     connection=pyodbc.connect(project['target']['connStr'], timeout=30),
-#     schemaName=project['tables'][0]['target']['schema'],
-#     tableName=project['tables'][0]['target']['name'])
-
-
-# targetTable.syncWith(sourceTable)
-# targetTable.batch = 10
-# sourceRows = sourceTable.rows(targetTable.rowver(), 500)
-
-# while True:
-#     for row in sourceRows:
-#         targetTable.merge(row, sourceTable.columns)
-
-#     sourceRows = sourceTable.rows(targetTable.rowver())
-#     time.sleep(10)
+    args = parser.parse_args()
+    sys.exit(main(args))

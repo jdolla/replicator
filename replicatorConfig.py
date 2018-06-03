@@ -1,0 +1,115 @@
+import json
+import sys
+import multiprocessing as mp
+
+
+class config():
+
+    def __init__(self, args):
+        self._args = args
+
+        with open('replicator.config.json', 'r') as f:
+            cf = json.load(f)
+
+        if 'jobs' not in cf:
+            raise KeyError('No jobs found in config file.')
+
+        self._jobConfigs = cf['jobs']
+        self._global = cf['global'] if 'global' in cf else {}
+
+    @property
+    def batch(self):
+        if self._global and 'batch' in self._global and self._global['batch']:
+            return self._global['batch']
+        return 10000
+
+    @property
+    def processes(self):
+        if (self._global and 'processes' in self._global and
+                self._global['processes']):
+            return self._global['processes']
+        return max(1, mp.cpu_count() - 2)
+
+    @property
+    def commit(self):
+        if (self._global and 'commit' in self._global and
+                self._global['commit']):
+            return self._global['commit']
+        return 500
+
+    @property
+    def jobs(self):
+        """
+        Parses the config json and retuns jobs
+        """
+
+        jconf = self._jobConfigs
+        reqJobs = self._args.jobs
+
+        if reqJobs:
+            notFound = [job for job in reqJobs if job not in jconf]
+
+            if notFound:
+                raise ValueError(
+                    f'Invalid job(s) specified: {", ".join(notFound)}')
+
+        if not reqJobs:
+            reqJobs = [job for job in jconf]
+
+        jobs = {}
+        for k, v in jconf.items():
+            if k not in reqJobs:
+                continue
+
+            srcConnStr = self.connStr(v['source'])
+            trgtConnStr = self.connStr(v['target'])
+
+            for table in v['tables']:
+                srcSchema = table['source']['schema']
+                srcTable = table['source']['name']
+
+                trgtSchema = table['target']['schema']
+                trgtTable = table['target']['name']
+
+                jobs[f"{k}.{srcSchema}.{srcTable}"] = {
+                    "source": {
+                        'connStr': srcConnStr,
+                        'schema': srcSchema,
+                        'name': srcTable,
+                    },
+                    "target": {
+                        'connStr': trgtConnStr,
+                        'schema': trgtSchema,
+                        'name': trgtTable,
+                    }
+                }
+
+        return jobs
+
+    def connStr(self, parts):
+        """
+        Parses the connection string parts and returns a full
+        connection string.
+
+        Note:   if a full connection string is specified then all other
+                attributes are ignored.
+        """
+        if 'connStr' in parts and parts['connStr']:
+            return parts['connStr']
+
+        port = parts['port'] if 'port' in parts else '1433'
+
+        connStr = f"DRIVER={{{parts['driver']}}};" \
+            f"SERVER={parts['host']},{port};" \
+            f"DATABASE={parts['database']};"
+
+        if 'trusted' in parts and parts['trusted']:
+            connStr += "Trusted_Connection=yes;"
+
+        if 'username' in parts:
+            connStr += f"UID={parts['username']};"
+
+        if 'password' in parts:
+            connStr += f"PWD={parts['password']};"
+
+        return connStr
