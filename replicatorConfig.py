@@ -19,22 +19,36 @@ class config():
 
     @property
     def batch(self):
+        if self._args.batch:
+            return self._args.batch
+
         if self._global and 'batch' in self._global and self._global['batch']:
             return self._global['batch']
+
         return 10000
 
     @property
-    def processes(self):
-        if (self._global and 'processes' in self._global and
-                self._global['processes']):
-            return self._global['processes']
-        return max(1, mp.cpu_count() - 2)
+    def proc(self):
+        maxProc = max(1, mp.cpu_count() - 2)
+
+        if self._args.proc:
+            return min(int(self._args.proc), maxProc)
+
+        if (self._global and 'proc' in self._global and
+                self._global['proc']):
+            return self._global['proc']
+
+        return maxProc
 
     @property
     def commit(self):
+        if self._args.commit:
+            return self._args.commit
+
         if (self._global and 'commit' in self._global and
                 self._global['commit']):
             return self._global['commit']
+
         return 500
 
     @property

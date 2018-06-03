@@ -63,6 +63,8 @@ def main(args):
         print(f'There was a problem loading the job list:\nerror:{err}')
         sys.exit(1)
 
+    print(
+        f'Using: \nbatch={config.batch}\ncommit={config.commit}\nprocs:{config.proc}\n\n')
     for job, configs in runJobs.items():
         print('Running Job:', job, configs)
 
@@ -80,6 +82,14 @@ if __name__ == '__main__':
 
     parser.add_argument('-p', '--proc', nargs='?',
                         help='<Optional> Number of processes to use.',
+                        required=False)
+
+    parser.add_argument('-b', '--batch', nargs='?',
+                        help='<Optional> Size of batch to retrieve from source.',
+                        required=False)
+
+    parser.add_argument('-c', '--commit', nargs='?',
+                        help='<Optional> Size of batch to commit to target.',
                         required=False)
 
     args = parser.parse_args()
