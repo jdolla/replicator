@@ -9,8 +9,15 @@ import pyodbc
 import argparse
 import replicatorConfig as rc
 from mssql.table import Table as sqlTable
+from collections import deque
 
 log = logging.getLogger('replicator')
+
+
+def log_uncaught_exceptions(ex_cls, ex, tb):
+    log.critical(''.join(traceback.format_tb(tb)))
+    log.critical('{0}: {1}'.format(ex_cls, ex))
+    sys.exit(1)
 
 
 def procDataflow(src, trgt):
@@ -36,7 +43,7 @@ def procDataflow(src, trgt):
         tableName=trgt['name']
     )
 
-    trgtTable.syncWith(srcTable)
+    trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
     trgtTable.batch = 10
 
     rowSets = srcTable.rows(trgtTable.rowver(), 500)
@@ -51,15 +58,25 @@ def procDataflow(src, trgt):
             break
 
 
-def log_uncaught_exceptions(ex_cls, ex, tb):
-    log.critical(''.join(traceback.format_tb(tb)))
-    log.critical('{0}: {1}'.format(ex_cls, ex))
-    sys.exit(1)
-
-
 def main(args):
+    log.debug('Loading configurations.')
     config = rc.config(args)
-    runJobs = config.jobs
+    log.debug('Configurations loaded.')
+
+    log.debug('Loading Jobs.')
+    runJobs = deque({k: v} for k, v in config.jobs.items())
+    log.debug('Jobs loaded.')
+
+    # processes = []
+    # for i in range(config.proc):
+    #     print(f'process {i}')
+
+    # TODO:
+    # The last leg... add multiprocessing to loop through
+    # all runJobs in the queue.
+    # cycle jobs in & out of queue
+    # popleft to pull into process and out of queue
+    # append to put back in the end of the queue
 
 
 if __name__ == '__main__':

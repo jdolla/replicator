@@ -2,7 +2,7 @@
   "global": {
     "batch": 10000,
     "commit": 500,
-    "processes": 2,
+    "proc": 2,
     "auto": false
   },
   "jobs": {
