@@ -18,6 +18,17 @@ class config():
         self._global = cf['global'] if 'global' in cf else {}
 
     @property
+    def auto(self):
+        if self._args.auto:
+            return self._args.auto
+
+        if (self._global and 'auto' in self._global and
+                self._global['auto']):
+            return self._global['auto']
+
+        return False
+
+    @property
     def batch(self):
         if self._args.batch:
             return self._args.batch

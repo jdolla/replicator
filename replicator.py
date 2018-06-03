@@ -64,7 +64,7 @@ def main(args):
         sys.exit(1)
 
     print(
-        f'Using: \nbatch={config.batch}\ncommit={config.commit}\nprocs:{config.proc}\n\n')
+        f'Using: \nbatch={config.batch}\ncommit={config.commit}\nprocs:{config.proc}\nauto:{config.auto}\n')
     for job, configs in runJobs.items():
         print('Running Job:', job, configs)
 
@@ -90,6 +90,10 @@ if __name__ == '__main__':
 
     parser.add_argument('-c', '--commit', nargs='?',
                         help='<Optional> Size of batch to commit to target.',
+                        required=False)
+
+    parser.add_argument('-a', '--auto', action="store_true",
+                        help='<Optional> Auto create target tables.',
                         required=False)
 
     args = parser.parse_args()
