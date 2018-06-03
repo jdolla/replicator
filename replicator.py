@@ -1,10 +1,16 @@
 import sys
 import time
 import multiprocessing as mp
+import logging
+import logging.config
+import replicatorLogConfig
+import traceback
 import pyodbc
 import argparse
 import replicatorConfig as rc
 from mssql.table import Table as sqlTable
+
+log = logging.getLogger('replicator')
 
 
 def procDataflow(src, trgt):
@@ -45,27 +51,15 @@ def procDataflow(src, trgt):
             break
 
 
+def log_uncaught_exceptions(ex_cls, ex, tb):
+    log.critical(''.join(traceback.format_tb(tb)))
+    log.critical('{0}: {1}'.format(ex_cls, ex))
+    sys.exit(1)
+
+
 def main(args):
-
-    try:
-        config = rc.config(args)
-    except FileNotFoundError as err:
-        print(f'Unable to open config file:\n{err}')
-        sys.exit(1)
-    except Exception as err:
-        print(f'There was a problem loading the configuration data.\n'
-              f'error: {err}')
-        sys.exit(1)
-
-    try:
-        runJobs = config.jobs
-    except Exception as err:
-        print(f'There was a problem loading the job list:\nerror:{err}')
-        sys.exit(1)
-
-    jobNames = [key for key in runJobs.keys()]
-
-    print(runJobs[jobNames[0]])
+    config = rc.config(args)
+    runJobs = config.jobs
 
 
 if __name__ == '__main__':
@@ -95,5 +89,20 @@ if __name__ == '__main__':
                         help='<Optional> Auto create target tables.',
                         required=False)
 
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='<Optional> Use debug logging level.',
+                        required=False)
+
     args = parser.parse_args()
+
+    if args.debug:
+        replicatorLogConfig.LOGGING['loggers']['replicator']['level'] = 'DEBUG'
+
+    # configure the logging
+    logging.config.dictConfig(replicatorLogConfig.LOGGING)
+
+    # log unhandled exceptions
+    sys.excepthook = log_uncaught_exceptions
+
+    log.debug('entering main()')
     sys.exit(main(args))
