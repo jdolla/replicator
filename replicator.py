@@ -63,10 +63,9 @@ def main(args):
         print(f'There was a problem loading the job list:\nerror:{err}')
         sys.exit(1)
 
-    print(
-        f'Using: \nbatch={config.batch}\ncommit={config.commit}\nprocs:{config.proc}\nauto:{config.auto}\n')
-    for job, configs in runJobs.items():
-        print('Running Job:', job, configs)
+    jobNames = [key for key in runJobs.keys()]
+
+    print(runJobs[jobNames[0]])
 
 
 if __name__ == '__main__':

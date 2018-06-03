@@ -156,10 +156,48 @@ class Table:
             self._pkCols = tuple([f"[{col.COLUMN_NAME}]" for col in cols])
             return self._pkCols
 
-    def syncWith(self, other):
-        """Adds columns to this table so that columns match the source.
-            DataTypes are always added according to the TypeMap
-            New Columns are always nullable"""
+    @property
+    def exists(self):
+        query = "select objectID = object_id(?);"
+        with self._connection.cursor() as cursor:
+            cursor.execute(query, self.name)
+            objectId = cursor.fetchone()[0]
+
+            if objectId:
+                return True
+
+            return False
+
+    def syncWith(self, other, create=False):
+        """
+        Adds columns to this table so that columns match the source.
+        DataTypes are always added according to the TypeMap
+        New Columns are always nullable
+
+        other: table to synchronize with
+        create: create the table if it does not already exist
+        """
+
+        if not self.exists and create:
+            pk = ", ".join(other.pkColumns)
+
+            selfColSchema = ", ".join([f"[{col}] {TypeMap.typeFor(attr)}"
+                                       for col, attr in other.schema.items()])
+
+            tableCreate = f"""
+                    IF OBJECT_ID('{self.name}') IS NULL
+                        CREATE TABLE {self.name}(
+                            {selfColSchema},
+                            primary key clustered ({pk})
+                        );
+                """
+            tableCreate = dedent(tableCreate)
+
+            with self._connection.cursor() as cursor:
+                cursor.execute(tableCreate)
+
+                if not self._connection.autocommit:
+                    cursor.commit()
 
         if self < other:
             newCols = {k: v for (k, v) in other.schema.items()
@@ -357,3 +395,4 @@ class TypeMap:
                 ", {type['NUMERIC_SCALE']})"
 
         return base
+
