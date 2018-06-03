@@ -61,6 +61,7 @@ def main(args):
         runJobs = config.jobs
     except Exception as err:
         print(f'There was a problem loading the job list:\nerror:{err}')
+        sys.exit(1)
 
     for job, configs in runJobs.items():
         print('Running Job:', job, configs)
