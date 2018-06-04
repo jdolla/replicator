@@ -20,7 +20,7 @@ def log_uncaught_exceptions(ex_cls, ex, tb):
     sys.exit(1)
 
 
-def procDataflow(src, trgt):
+def procDataflow(commons, conf):
     """
     Processes a dataflow.
         src: a data source (table)
@@ -30,53 +30,76 @@ def procDataflow(src, trgt):
             transformation functions.
             Someting to think about for later :)
     """
+    print('hello!')
+    time.sleep(10)
+    # srcTable = sqlTable(
+    #     connection=pyodbc.connect(src['connStr']),
+    #     schemaName=src['schema'],
+    #     tableName=src['name']
+    # )
 
-    srcTable = sqlTable(
-        connection=pyodbc.connect(src['connStr']),
-        schemaName=src['schema'],
-        tableName=src['name']
-    )
+    # trgtTable = sqlTable(
+    #     connection=pyodbc.connect(trgt['connStr']),
+    #     schemaName=trgt['schema'],
+    #     tableName=trgt['name']
+    # )
 
-    trgtTable = sqlTable(
-        connection=pyodbc.connect(trgt['connStr']),
-        schemaName=trgt['schema'],
-        tableName=trgt['name']
-    )
+    # trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
+    # trgtTable.batch = 10
 
-    trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
-    trgtTable.batch = 10
+    # rowSets = srcTable.rows(trgtTable.rowver(), 500)
 
-    rowSets = srcTable.rows(trgtTable.rowver(), 500)
+    # while True:
+    #     for rowSet in rowSets:
+    #         trgtTable.merge(rowSet, srcTable.columns)
 
-    while True:
-        for rowSet in rowSets:
-            trgtTable.merge(rowSet, srcTable.columns)
+    #     rowSets = srcTable.rows(trgtTable.rowver())
 
-        rowSets = srcTable.rows(trgtTable.rowver())
+    #     if not rowSets:
+    #         break
 
-        if not rowSets:
-            break
+
+def nextProc(runQueue, runJobs, commons):
+    jobName = runQueue.popleft()
+    jobConf = runJobs[jobName]
+    jobArgs = (commons, jobConf)
+    jobProc = mp.Process(target=procDataflow, name=jobName, args=jobArgs)
+    return jobProc
 
 
 def main(args):
-    log.debug('Loading configurations.')
     config = rc.config(args)
-    log.debug('Configurations loaded.')
+    runJobs = config.jobs
+    runQueue = deque([k for k in runJobs])
 
-    log.debug('Loading Jobs.')
-    runJobs = deque({k: v} for k, v in config.jobs.items())
-    log.debug('Jobs loaded.')
+    commons = {
+        'batch': config.batch,
+        'auto': config.auto,
+        'commit': config.commit
+    }
 
-    # processes = []
-    # for i in range(config.proc):
-    #     print(f'process {i}')
+    dfProcs = []
+    for _ in range(min(config.proc, len(runQueue))):
+        jobProc = nextProc(runQueue, runJobs, commons)
+        jobProc.start()
+        dfProcs.append(jobProc)
 
-    # TODO:
-    # The last leg... add multiprocessing to loop through
-    # all runJobs in the queue.
-    # cycle jobs in & out of queue
-    # popleft to pull into process and out of queue
-    # append to put back in the end of the queue
+    while len(dfProcs) > 0:
+        for dfProc in dfProcs:
+            if dfProc.is_alive() is False:
+                dfProcs.remove(dfProc)
+                log.debug(f'Process ended {dfProc.name}')
+
+                if dfProc.exitcode != 0:
+                    log.error(f'Process failed: {dfProc}')
+
+                runQueue.append(dfProc.name)
+                jobProc = nextProc(runQueue, runJobs, commons)
+                jobProc.start()
+                log.debug(f'Process started {jobProc.name}.')
+                dfProcs.append(jobProc)
+
+            time.sleep(5)
 
 
 if __name__ == '__main__':
