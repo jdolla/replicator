@@ -1,0 +1,79 @@
+{
+  "global": {
+    "batch": 10000,
+    "commit": 500,
+    "proc": 2,
+    "auto": false
+  },
+  "jobs": {
+    "demo": {
+      "source": {
+        "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
+        "username": "sa",
+        "password": "p@ssword123!",
+        "host": "127.0.0.1,1433",
+        "database": "replicatorDemo",
+        "trusted": false,
+        "driver": "ODBC Driver 17 for SQL Server"
+      },
+      "target": {
+        "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
+        "username": "sa",
+        "password": "p@ssword123!",
+        "host": "127.0.0.1,1433",
+        "database": "replicatorDemo",
+        "trusted": false,
+        "driver": "ODBC Driver 17 for SQL Server"
+      },
+      "tables": [{
+        "source": {
+          "schema": "dbo",
+          "name": "animal"
+        },
+        "target": {
+          "schema": "dbo",
+          "name": "animal_copy"
+        }
+      }, {
+        "source": {
+          "schema": "dbo",
+          "name": "animal_pk"
+        },
+        "target": {
+          "schema": "dbo",
+          "name": "animal_pk_copy"
+        }
+      }]
+    },
+    "secondDemo": {
+      "source": {
+        "username": "sa",
+        "password": "p@ssword123!",
+        "host": "127.0.0.1",
+        "port": 1433,
+        "database": "replicatorDemo",
+        "trusted": false,
+        "driver": "ODBC Driver 17 for SQL Server"
+      },
+      "target": {
+        "connStr": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=127.0.0.1,1433;DATABASE=replicatorDemo;UID=sa;PWD=p@ssword123!",
+        "username": "sa",
+        "password": "p@ssword123!",
+        "host": "127.0.0.1,1433",
+        "database": "replicatorDemo",
+        "trusted": false,
+        "driver": "ODBC Driver 17 for SQL Server"
+      },
+      "tables": [{
+        "source": {
+          "schema": "dbo",
+          "name": "animal"
+        },
+        "target": {
+          "schema": "dbo",
+          "name": "animal_copy"
+        }
+      }]
+    }
+  }
+}
