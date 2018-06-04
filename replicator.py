@@ -1,9 +1,11 @@
 import sys
 import time
 import multiprocessing as mp
+import threading
 import logging
 import logging.config
-import replicatorLogConfig
+import logging.handlers
+import replicatorLogConfig as logCfg
 import traceback
 import pyodbc
 import argparse
@@ -11,13 +13,21 @@ import replicatorConfig as rc
 from mssql.table import Table as sqlTable
 from collections import deque
 
-log = logging.getLogger('replicator')
-
 
 def log_uncaught_exceptions(ex_cls, ex, tb):
-    log.critical(''.join(traceback.format_tb(tb)))
-    log.critical('{0}: {1}'.format(ex_cls, ex))
+    rLog.critical(''.join(traceback.format_tb(tb)))
+    rLog.critical('{0}: {1}'.format(ex_cls, ex))
+    logQ.put(None)
     sys.exit(1)
+
+
+def logger_thread(logQ):
+    while True:
+        record = logQ.get()
+        if record is None:
+            break
+        logger = logging.getLogger('replicator')
+        logger.handle(record)
 
 
 def procDataflow(commons, conf):
@@ -30,33 +40,54 @@ def procDataflow(commons, conf):
             transformation functions.
             Someting to think about for later :)
     """
-    print('hello!')
-    time.sleep(10)
-    # srcTable = sqlTable(
-    #     connection=pyodbc.connect(src['connStr']),
-    #     schemaName=src['schema'],
-    #     tableName=src['name']
-    # )
+    dfName = mp.current_process().name
+    dfPid = mp.current_process().pid
+    qh = logging.handlers.QueueHandler(commons['logQ'])
+    root = logging.getLogger()
+    root.setLevel(commons['lvl'])
+    root.addHandler(qh)
+    dfLogger = logging.getLogger('replicator')
 
-    # trgtTable = sqlTable(
-    #     connection=pyodbc.connect(trgt['connStr']),
-    #     schemaName=trgt['schema'],
-    #     tableName=trgt['name']
-    # )
+    dfLogger.debug(f'Running dataflow processes: {dfName}')
 
-    # trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
-    # trgtTable.batch = 10
+    try:
 
-    # rowSets = srcTable.rows(trgtTable.rowver(), 500)
+        srcTable = sqlTable(
+            connection=pyodbc.connect(conf['source']['connStr']),
+            schemaName=conf['source']['schema'],
+            tableName=conf['source']['name']
+        )
 
-    # while True:
-    #     for rowSet in rowSets:
-    #         trgtTable.merge(rowSet, srcTable.columns)
+        trgtTable = sqlTable(
+            connection=pyodbc.connect(conf['target']['connStr']),
+            schemaName=conf['target']['schema'],
+            tableName=conf['target']['name']
+        )
 
-    #     rowSets = srcTable.rows(trgtTable.rowver())
+        dfLogger.debug(f'({dfName}: ')
+        trgtTable.syncWith(srcTable, commons['auto'])
 
-    #     if not rowSets:
-    #         break
+        dfLogger.debug(f'Completed dataflow processes: {dfName}')
+
+    except:
+        e = sys.exc_info()
+        ex = f'(child process: {mp.current_process().name}){e[1]}'
+        dfLogger.critical(''.join(traceback.format_tb(e[2])))
+        dfLogger.critical('{0}: {1}'.format(e[0], ex))
+
+        # trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
+        # trgtTable.batch = 10
+
+        # rowSets = srcTable.rows(trgtTable.rowver(), 500)
+
+        # while True:
+        #     for rowSet in rowSets:
+        #         trgtTable.merge(rowSet, srcTable.columns)
+
+        #     rowSets = srcTable.rows(trgtTable.rowver())
+
+        #     if not rowSets:
+        #         break
 
 
 def nextProc(runQueue, runJobs, commons):
@@ -67,7 +98,7 @@ def nextProc(runQueue, runJobs, commons):
     return jobProc
 
 
-def main(args):
+def main(args, logQ):
     config = rc.config(args)
     runJobs = config.jobs
     runQueue = deque([k for k in runJobs])
@@ -75,7 +106,9 @@ def main(args):
     commons = {
         'batch': config.batch,
         'auto': config.auto,
-        'commit': config.commit
+        'commit': config.commit,
+        'logQ': logQ,
+        'lvl': 10 if args.debug else 40
     }
 
     dfProcs = []
@@ -88,18 +121,19 @@ def main(args):
         for dfProc in dfProcs:
             if dfProc.is_alive() is False:
                 dfProcs.remove(dfProc)
-                log.debug(f'Process ended {dfProc.name}')
-
-                if dfProc.exitcode != 0:
-                    log.error(f'Process failed: {dfProc}')
-
                 runQueue.append(dfProc.name)
                 jobProc = nextProc(runQueue, runJobs, commons)
                 jobProc.start()
-                log.debug(f'Process started {jobProc.name}.')
                 dfProcs.append(jobProc)
 
             time.sleep(5)
+
+    logQ.put(None)
+
+
+# Logging objects for main process
+rLog = logging.getLogger('replicator')
+logQ = mp.Queue()
 
 
 if __name__ == '__main__':
@@ -136,13 +170,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.debug:
-        replicatorLogConfig.LOGGING['loggers']['replicator']['level'] = 'DEBUG'
+        logCfg.LOGGING['loggers']['replicator']['level'] = 'DEBUG'
 
     # configure the logging
-    logging.config.dictConfig(replicatorLogConfig.LOGGING)
+    logging.config.dictConfig(logCfg.LOGGING)
+
+    # setup a logging thread
+    logProc = threading.Thread(target=logger_thread, args=(logQ,))
+    logProc.start()
 
     # log unhandled exceptions
     sys.excepthook = log_uncaught_exceptions
 
-    log.debug('entering main()')
-    sys.exit(main(args))
+    sys.exit(main(args, logQ))

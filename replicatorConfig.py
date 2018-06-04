@@ -122,10 +122,13 @@ class config():
         if 'connStr' in parts and parts['connStr']:
             return parts['connStr']
 
-        port = parts['port'] if 'port' in parts else '1433'
+        if 'port' in parts and parts['port']:
+            port = f",{parts['port']}"
+        else:
+            port = ""
 
         connStr = f"DRIVER={{{parts['driver']}}};" \
-            f"SERVER={parts['host']},{port};" \
+            f"SERVER={parts['host']}{port};" \
             f"DATABASE={parts['database']};"
 
         if 'trusted' in parts and parts['trusted']:
