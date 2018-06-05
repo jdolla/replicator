@@ -48,30 +48,31 @@ def procDataflow(commons, conf):
     root.addHandler(qh)
     dfLogger = logging.getLogger('replicator')
 
-    dfLogger.debug(f'Running dataflow processes: {dfName}')
+    dfLogger.debug(f'({dfPid}) {dfName}: Running dataflow processes.')
 
     try:
 
+        dfLogger.debug(f'({dfPid}) {dfName}: connecting to source db.')
         srcTable = sqlTable(
             connection=pyodbc.connect(conf['source']['connStr']),
             schemaName=conf['source']['schema'],
             tableName=conf['source']['name']
         )
 
+        dfLogger.debug(f'({dfPid}) {dfName}: connecting to target db.')
         trgtTable = sqlTable(
             connection=pyodbc.connect(conf['target']['connStr']),
             schemaName=conf['target']['schema'],
             tableName=conf['target']['name']
         )
 
-        dfLogger.debug(f'({dfName}: ')
+        dfLogger.debug(f'({dfPid}) {dfName}: synching table.')
         trgtTable.syncWith(srcTable, commons['auto'])
-
-        dfLogger.debug(f'Completed dataflow processes: {dfName}')
+        dfLogger.debug(f'({dfPid}) {dfName}: Completed dataflow processes.')
 
     except:
         e = sys.exc_info()
-        ex = f'(child process: {mp.current_process().name}){e[1]}'
+        ex = f'({dfPid}) {dfName}: {e[1]}'
         dfLogger.critical(''.join(traceback.format_tb(e[2])))
         dfLogger.critical('{0}: {1}'.format(e[0], ex))
 
