@@ -3,6 +3,8 @@ config/*
 tests/testing_config/deps
 tests/testing_config/home-assistant.log
 
+replicatorLogConfig.py
+
 # Hide sublime text stuff
 *.sublime-project
 *.sublime-workspace
