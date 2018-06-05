@@ -395,4 +395,3 @@ class TypeMap:
                 ", {type['NUMERIC_SCALE']})"
 
         return base
-

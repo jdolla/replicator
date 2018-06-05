@@ -70,25 +70,18 @@ def procDataflow(commons, conf):
         trgtTable.syncWith(srcTable, commons['auto'])
         dfLogger.debug(f'({dfPid}) {dfName}: Completed dataflow processes.')
 
+        rowSets = srcTable.rows(trgtTable.rowver(), commons['commit'])
+        for rowSet in rowSets:
+            if rowSet:
+                trgtTable.merge(rowSet, srcTable.columns)
+
+        time.sleep(1)  # take a nap...
+
     except:
         e = sys.exc_info()
         ex = f'({dfPid}) {dfName}: {e[1]}'
         dfLogger.critical(''.join(traceback.format_tb(e[2])))
         dfLogger.critical('{0}: {1}'.format(e[0], ex))
-
-        # trgtTable.syncWith(srcTable)  # need to add somethin' bout auto
-        # trgtTable.batch = 10
-
-        # rowSets = srcTable.rows(trgtTable.rowver(), 500)
-
-        # while True:
-        #     for rowSet in rowSets:
-        #         trgtTable.merge(rowSet, srcTable.columns)
-
-        #     rowSets = srcTable.rows(trgtTable.rowver())
-
-        #     if not rowSets:
-        #         break
 
 
 def nextProc(runQueue, runJobs, commons):
@@ -109,8 +102,14 @@ def main(args, logQ):
         'auto': config.auto,
         'commit': config.commit,
         'logQ': logQ,
-        'lvl': 10 if args.debug else 40
+        'lvl': logging.DEBUG if args.debug else logging.ERROR
     }
+
+    rLog.debug(f'{"*" * 20}')
+    rLog.debug(f'batch size: {config.batch}')
+    rLog.debug(f'commit size: {config.commit}')
+    rLog.debug(f'auto commit: {config.auto}')
+    rLog.debug(f'{"*" * 20}')
 
     dfProcs = []
     for _ in range(min(config.proc, len(runQueue))):
@@ -127,7 +126,7 @@ def main(args, logQ):
                 jobProc.start()
                 dfProcs.append(jobProc)
 
-            time.sleep(5)
+            time.sleep(5)  # pause before double-checking
 
     logQ.put(None)
 
