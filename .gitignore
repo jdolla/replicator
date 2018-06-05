@@ -1,6 +1,4 @@
 config/*
-replicatorLogConfig.py
-replicator.config.json
 
 tests/testing_config/deps
 tests/testing_config/home-assistant.log
