@@ -175,7 +175,7 @@ if __name__ == '__main__':
     print('Loading log configuration.')
 
     if args.debug:
-        logCfg.LOGGING['loggers']['replicator']['level'] = 'DEBUG'
+        logCfg['logging']['loggers']['replicator']['level'] = 'DEBUG'
 
     # configure the logging
     logging.config.dictConfig(logCfg['logging'])
