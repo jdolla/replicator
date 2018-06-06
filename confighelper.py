@@ -8,7 +8,7 @@ class config():
     def __init__(self, args):
         self._args = args
 
-        with open('replicator.config.json', 'r') as f:
+        with open('jobconfig.json', 'r') as f:
             cf = json.load(f)
 
         if 'jobs' not in cf:

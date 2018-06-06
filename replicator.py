@@ -11,6 +11,7 @@ import argparse
 import confighelper as cfgh
 from mssql.table import Table as sqlTable
 from collections import deque
+import json
 
 
 def log_uncaught_exceptions(ex_cls, ex, tb):
@@ -168,11 +169,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    with open('logconfig.json', 'r') as f:
+        logCfg = json.load(f)
+
+    print('Loading log configuration.')
+
     if args.debug:
         logCfg.LOGGING['loggers']['replicator']['level'] = 'DEBUG'
 
     # configure the logging
-    logging.config.dictConfig(logCfg.LOGGING)
+    logging.config.dictConfig(logCfg['logging'])
 
     # setup a logging thread
     logProc = threading.Thread(target=logger_thread, args=(logQ,))
@@ -181,4 +187,5 @@ if __name__ == '__main__':
     # log unhandled exceptions
     sys.excepthook = log_uncaught_exceptions
 
+    print('Starting replicator jobs')
     sys.exit(main(args, logQ))
