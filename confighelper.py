@@ -1,6 +1,7 @@
 import json
 import sys
 import multiprocessing as mp
+from os import path
 
 
 class config():
@@ -8,7 +9,10 @@ class config():
     def __init__(self, args):
         self._args = args
 
-        with open('jobconfig.json', 'r') as f:
+        cur_dir = path.dirname(__file__)
+        lf = path.join(cur_dir, 'config/jobconfig.json')
+
+        with open(lf, 'r') as f:
             cf = json.load(f)
 
         if 'jobs' not in cf:

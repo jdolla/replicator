@@ -1,4 +1,5 @@
 import sys
+from os import path
 import time
 import multiprocessing as mp
 import threading
@@ -169,10 +170,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    with open('logconfig.json', 'r') as f:
-        logCfg = json.load(f)
+    cur_dir = path.dirname(__file__)
+    lf = path.join(cur_dir, 'config/logconfig.json')
 
-    print('Loading log configuration.')
+    print(f'Loading log configuration: {lf}')
+
+    with open(lf, 'r') as f:
+        logCfg = json.load(f)
 
     if args.debug:
         logCfg['logging']['loggers']['replicator']['level'] = 'DEBUG'
