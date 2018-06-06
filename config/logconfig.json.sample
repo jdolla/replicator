@@ -1,0 +1,35 @@
+{
+    "logging": {
+        "version": 1,
+        "disable_existing_loggers": true,
+        "root": {
+            "level": "ERROR",
+            "handlers": ["console", "logfile"]
+        },
+        "formatters": {
+            "basic": {
+                "format": "%(asctime)-22s [%(process)d] %(name)-30s %(lineno)-5d %(levelname)-8s %(message)s"
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "basic"
+            },
+            "logfile": {
+                "class": "logging.FileHandler",
+                "formatter": "basic",
+                "level": "DEBUG",
+                "filename": "replicator.log",
+                "mode": "a"
+            }
+        },
+        "loggers": {
+            "replicator": {
+                "handlers": ["console", "logfile"],
+                "level": "ERROR",
+                "propagate": false
+            }
+        }
+    }
+}
