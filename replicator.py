@@ -59,6 +59,7 @@ def procDataflow(commons, conf):
             schemaName=conf['source']['schema'],
             tableName=conf['source']['name']
         )
+        srcTable.batch = commons['batch']
 
         dfLogger.debug(f'({dfPid}) {dfName}: connecting to target db.')
         trgtTable = sqlTable(
@@ -66,6 +67,7 @@ def procDataflow(commons, conf):
             schemaName=conf['target']['schema'],
             tableName=conf['target']['name']
         )
+        trgtTable.batch = commons['batch']
 
         dfLogger.debug(f'({dfPid}) {dfName}: synching table.')
         trgtTable.syncWith(srcTable, commons['auto'])

@@ -1,6 +1,7 @@
 from os import path, listdir
 from textwrap import dedent
 import pyodbc
+import struct
 
 
 def sqlTemplate(templatePath):
@@ -24,12 +25,21 @@ def sqlTemplates():
 templates = sqlTemplates()
 
 
+def handle_datetimeoffset(dto_value):
+    # https://github.com/mkleehammer/pyodbc/wiki/Using-an-Output-Converter-function
+    # e.g., (2017, 3, 16, 10, 35, 18, 0, -6, 0)
+    tup = struct.unpack("<6hI2h", dto_value)
+    tweaked = [tup[i] // 100 if i == 6 else tup[i] for i in range(len(tup))]
+    return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}.{:07d} {:+03d}:{:02d}".format(*tweaked)
+
+
 class Table:
     """Class for managing a sql table"""
 
     def __init__(self, connection, schemaName, tableName):
         self._batch = 10000
         self._connection = connection
+        self._connection.add_output_converter(-155, handle_datetimeoffset)
 
         self._tableName = tableName
         self._schemaName = schemaName
@@ -161,7 +171,7 @@ class Table:
         query = "select objectID = object_id(?);"
         with self._connection.cursor() as cursor:
             cursor.execute(query, self.name)
-            objectId = cursor.fetchone()[0]
+            objectId = cursor.fetchval()
 
             if objectId:
                 return True
