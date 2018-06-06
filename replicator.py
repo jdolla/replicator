@@ -93,8 +93,8 @@ def nextProc(runQueue, runJobs, commons):
     return jobProc
 
 
-def main(args, logQ):
-    config = cfgh.config(args)
+def main(args, logQ, configF):
+    config = cfgh.config(args, configF)
     runJobs = config.jobs
     runQueue = deque([k for k in runJobs])
 
@@ -138,6 +138,13 @@ logQ = mp.Queue()
 
 
 if __name__ == '__main__':
+
+    if getattr(sys, 'frozen', False):
+        cur_dir = sys._MEIPASS
+        mp.freeze_support()
+    else:
+        cur_dir = path.dirname(path.abspath(__file__))
+
     epilog = "All replicator arguments are optional and will" \
         " override the values in the config file."
 
@@ -170,7 +177,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    cur_dir = path.dirname(__file__)
     lf = path.join(cur_dir, 'config/logconfig.json')
 
     print(f'Loading log configuration: {lf}')
@@ -191,5 +197,10 @@ if __name__ == '__main__':
     # log unhandled exceptions
     sys.excepthook = log_uncaught_exceptions
 
+    # load the job config './config/jobconfig.json'
+    cf = path.join(cur_dir, 'config/jobconfig.json')
+    with open(cf, 'r') as f:
+        configF = json.load(f)
+
     print('Starting replicator jobs')
-    sys.exit(main(args, logQ))
+    sys.exit(main(args, logQ, configF))

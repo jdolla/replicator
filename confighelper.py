@@ -6,20 +6,14 @@ from os import path
 
 class config():
 
-    def __init__(self, args):
+    def __init__(self, args, configF):
         self._args = args
 
-        cur_dir = path.dirname(__file__)
-        lf = path.join(cur_dir, 'config/jobconfig.json')
-
-        with open(lf, 'r') as f:
-            cf = json.load(f)
-
-        if 'jobs' not in cf:
+        if 'jobs' not in configF:
             raise KeyError('No jobs found in config file.')
 
-        self._jobConfigs = cf['jobs']
-        self._global = cf['global'] if 'global' in cf else {}
+        self._jobConfigs = configF['jobs']
+        self._global = configF['global'] if 'global' in configF else {}
 
     @property
     def auto(self):
