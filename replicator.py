@@ -5,11 +5,10 @@ import threading
 import logging
 import logging.config
 import logging.handlers
-import replicatorLogConfig as logCfg
 import traceback
 import pyodbc
 import argparse
-import replicatorConfig as rc
+import confighelper as cfgh
 from mssql.table import Table as sqlTable
 from collections import deque
 
@@ -93,7 +92,7 @@ def nextProc(runQueue, runJobs, commons):
 
 
 def main(args, logQ):
-    config = rc.config(args)
+    config = cfgh.config(args)
     runJobs = config.jobs
     runQueue = deque([k for k in runJobs])
 
